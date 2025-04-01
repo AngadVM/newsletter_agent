@@ -8,9 +8,14 @@ langchain = "*"
 langgraph = "*"
 autogen = "*"
 stackapi = "*"
-chromadb = "*"
+chromadb = "==0.6.0"
 vector-etl = "*"
 sendgrid = "*"
+transformers = "*"
+torch = "*"
+pandas = "*"
+pyarrow = "*"
+sentence-transformers = "*"
 
 [dev-packages]
 
