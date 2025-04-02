@@ -6,7 +6,7 @@ from langgraph.graph import StateGraph
 from typing import TypedDict, Annotated
 from typing_extensions import TypedDict
 
-# ✅ Load T5-small model (Efficient for CPU)
+#  Load T5-small model (Efficient for CPU)
 MODEL_NAME = "t5-small"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
@@ -15,11 +15,11 @@ def get_latest_parquet_file(directory="data"):
     """Finds the most recent Parquet file in 'data/' directory."""
     files = [f for f in os.listdir(directory) if f.endswith(".parquet")]
     if not files:
-        raise FileNotFoundError("❌ No Parquet files found in 'data' directory.")
+        raise FileNotFoundError(" No Parquet files found in 'data' directory.")
     
     files.sort(key=lambda f: os.path.getmtime(os.path.join(directory, f)), reverse=True)
     latest_file = files[0]
-    print(f"✅ Loading data from: {latest_file}")  
+    print(f" Loading data from: {latest_file}")  
     return os.path.join(directory, latest_file)
 
 def load_data():
@@ -59,7 +59,7 @@ class SummarizationState(TypedDict):
     df: pd.DataFrame
     summarized_df: pd.DataFrame
 
-# ✅ LangGraph-based Summarization Workflow
+#  LangGraph-based Summarization Workflow
 class SummarizationGraph(StateGraph):
     def __init__(self):
         super().__init__(state_schema=SummarizationState)
@@ -106,10 +106,10 @@ class SummarizationGraph(StateGraph):
         """Saves summarized data to a Parquet file."""
         output_file = "data/summarized_posts.parquet"
         state["summarized_df"].to_parquet(output_file)
-        print(f"✅ Saved summarized data to {output_file}")
+        print(f" Saved summarized data to {output_file}")
         return state
 
-# ✅ Run the summarization workflow
+#  Run the summarization workflow
 if __name__ == "__main__":
     graph = SummarizationGraph()
     app = graph.compile()

@@ -14,37 +14,37 @@ def run_pipeline():
     """Execute the full pipeline using LangGraph workflows."""
     try:
         # Step 1: Scrape Stack Overflow
-        print("🔄 Step 1: Scraping Stack Overflow...")
+        print(" Step 1: Scraping Stack Overflow...")
         scraping_graph = ScrapingGraph()
         scraping_app = scraping_graph.compile()
         scraping_app.invoke({})
 
         # Step 2: Summarize Q&A
-        print("🔄 Step 2: Summarizing Q&A...")
+        print(" Step 2: Summarizing Q&A...")
         summarization_graph = SummarizationGraph()
         summarization_app = summarization_graph.compile()
         summarization_app.invoke({})
 
         # Step 3: Categorize posts
-        print("🔄 Step 3: Categorizing posts...")
+        print(" Step 3: Categorizing posts...")
         categorization_graph = CategorizationGraph()
         categorization_app = categorization_graph.compile()
         categorization_app.invoke({})
 
         # Step 4: Vectorize and store
-        print("🔄 Step 4: Vectorizing and storing...")
+        print(" Step 4: Vectorizing and storing...")
         vector_graph = VectorStoreGraph()
         vector_app = vector_graph.compile()
         vector_app.invoke({})
 
         # Step 5: Generate Newsletter
-        print("🔄 Step 5: Generating newsletter...")
+        print(" Step 5: Generating newsletter...")
         newsletter_graph = NewsletterGraph()
         newsletter_app = newsletter_graph.compile()
         newsletter_app.invoke({})
 
         # Step 6: Send Email
-        print("🔄 Step 6: Sending newsletter...")
+        print(" Step 6: Sending newsletter...")
         newsletter_path = "data/output_newsletter/newsletter.html"
         
         if not os.path.exists(newsletter_path):
@@ -63,10 +63,10 @@ def run_pipeline():
         if not success:
             raise Exception("Failed to send newsletter to any recipient")
 
-        print("✅ Pipeline completed successfully!")
+        print(" Pipeline completed successfully!")
         
     except Exception as e:
-        print(f"❌ Pipeline failed: {str(e)}")
+        print(f" Pipeline failed: {str(e)}")
         raise
 
 if __name__ == "__main__":

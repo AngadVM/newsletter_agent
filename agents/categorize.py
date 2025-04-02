@@ -43,7 +43,7 @@ class CategorizationState(TypedDict):
     df: pd.DataFrame
     categorized_df: pd.DataFrame
 
-# ✅ LangGraph-based Categorization Workflow
+#  LangGraph-based Categorization Workflow
 class CategorizationGraph(StateGraph):
     def __init__(self):
         super().__init__(state_schema=CategorizationState)
@@ -79,10 +79,10 @@ class CategorizationGraph(StateGraph):
         """Saves categorized data to a Parquet file."""
         output_file = "data/categorized_posts.parquet"
         state["categorized_df"].to_parquet(output_file)
-        print(f"✅ Categorized data saved to {output_file}")
+        print(f" Categorized data saved to {output_file}")
         return state
 
-# ✅ Run the categorization workflow
+#  Run the categorization workflow
 if __name__ == "__main__":
     graph = CategorizationGraph()
     app = graph.compile()

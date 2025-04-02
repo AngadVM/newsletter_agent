@@ -29,7 +29,7 @@ class VectorStoreState(TypedDict):
     collection: chromadb.Collection
     model: SentenceTransformer
 
-# ✅ LangGraph-based Vector Store Workflow
+#  LangGraph-based Vector Store Workflow
 class VectorStoreGraph(StateGraph):
     def __init__(self):
         super().__init__(state_schema=VectorStoreState)
@@ -99,10 +99,10 @@ class VectorStoreGraph(StateGraph):
                 embeddings=embeddings
             )
 
-        print("✅ Vectorization and storage completed!")
+        print(" Vectorization and storage completed!")
         return state
 
-# ✅ Run the vector store workflow
+#  Run the vector store workflow
 if __name__ == "__main__":
     graph = VectorStoreGraph()
     app = graph.compile()

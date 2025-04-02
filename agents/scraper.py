@@ -85,7 +85,7 @@ def save_to_parquet(posts: list, output_dir: str = "data/") -> str:
     print(f"Saved {len(posts)} posts to {parquet_file}")
     return parquet_file
 
-# ✅ LangGraph-based Scraping Workflow
+#  LangGraph-based Scraping Workflow
 class ScrapingGraph(StateGraph):
     def __init__(self):
         super().__init__(state_schema=ScrapingState)

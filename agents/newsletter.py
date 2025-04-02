@@ -50,7 +50,7 @@ def elaborate_solution(solution: str) -> str:
         # Generate a simple elaboration if no additional details
         return f"{main_solution}. {elaboration}providing a robust and maintainable approach to the problem."
 
-# ✅ LangGraph-based Newsletter Generation Workflow
+#  LangGraph-based Newsletter Generation Workflow
 class NewsletterGraph(StateGraph):
     def __init__(self):
         super().__init__(state_schema=NewsletterState)
@@ -151,10 +151,10 @@ class NewsletterGraph(StateGraph):
         with open(output_path, "w") as f:
             f.write(state["newsletter_html"])
 
-        print(f"✅ Newsletter saved at {output_path}")
+        print(f" Newsletter saved at {output_path}")
         return state
 
-# ✅ Run the newsletter generation workflow
+#  Run the newsletter generation workflow
 if __name__ == "__main__":
     graph = NewsletterGraph()
     app = graph.compile()
