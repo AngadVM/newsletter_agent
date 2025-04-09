@@ -9,13 +9,18 @@ langgraph = "*"
 autogen = "*"
 stackapi = "*"
 chromadb = "==0.6.0"
-vector-etl = "*"
 sendgrid = "*"
 transformers = "*"
 torch = "*"
 pandas = "*"
-pyarrow = "*"
 sentence-transformers = "*"
+openai = "*"
+aiohttp = "*"
+tqdm = "*"
+pinecone = "*"
+pyarrow = "<19.0.0"
+vector-etl = {file = "../VectorETL"}
+github = "*"
 
 [dev-packages]
 
