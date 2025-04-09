@@ -1,73 +1,66 @@
 import os
 from dotenv import load_dotenv
-from agents.scraper import ScrapingGraph
-from agents.summarize import SummarizationGraph
-from agents.categorize import CategorizationGraph
-from agents.vector_store import VectorStoreGraph
-from agents.newsletter import NewsletterGraph
+import subprocess
+from langgraph.graph import StateGraph
 from agents.email_sender import send_email, CONFIG
+from agents.newsletter import NewsletterGraph
 
 # Load environment variables
 load_dotenv()
 
+def run_vector_etl(state: dict) -> dict:
+    print("Running vector-etl CLI...")
+    subprocess.run(
+        ["vector-etl", "-c", "../config/stackoverflow_to_chroma.yaml"],
+        check=True
+    )
+    print(" vector-etl completed.")
+    return state
+
+def run_newsletter(state: dict) -> dict:
+    print("Generating newsletter with LangGraph...")
+    newsletter_graph = NewsletterGraph()
+    newsletter_app = newsletter_graph.compile()
+    newsletter_app.invoke({})
+    return state
+
+def run_email_sender(state: dict) -> dict:
+    print("Sending newsletter email...")
+    newsletter_path = "data/output_newsletter/newsletter.html"
+    
+    if not os.path.exists(newsletter_path):
+        raise FileNotFoundError(f"Newsletter file not found at {newsletter_path}")
+    
+    success = False
+    for recipient in CONFIG["recipients"]:
+        if send_email(
+            recipient=recipient.strip(),
+            subject=CONFIG["subject"],
+            html_file=newsletter_path
+        ):
+            success = True
+            break
+
+    if not success:
+        raise Exception("Failed to send newsletter to any recipient")
+
+    print(" Email sent successfully.")
+    return state
+
 def run_pipeline():
-    """Execute the full pipeline using LangGraph workflows."""
-    try:
-        # Step 1: Scrape Stack Overflow
-        print(" Step 1: Scraping Stack Overflow...")
-        scraping_graph = ScrapingGraph()
-        scraping_app = scraping_graph.compile()
-        scraping_app.invoke({})
+    graph = StateGraph(dict)
 
-        # Step 2: Summarize Q&A
-        print(" Step 2: Summarizing Q&A...")
-        summarization_graph = SummarizationGraph()
-        summarization_app = summarization_graph.compile()
-        summarization_app.invoke({})
+    graph.add_node("vector_etl", run_vector_etl)
+    graph.add_node("newsletter", run_newsletter)
+    graph.add_node("send_email", run_email_sender)
 
-        # Step 3: Categorize posts
-        print(" Step 3: Categorizing posts...")
-        categorization_graph = CategorizationGraph()
-        categorization_app = categorization_graph.compile()
-        categorization_app.invoke({})
+    graph.set_entry_point("vector_etl")
+    graph.add_edge("vector_etl", "newsletter")
+    graph.add_edge("newsletter", "send_email")
 
-        # Step 4: Vectorize and store
-        print(" Step 4: Vectorizing and storing...")
-        vector_graph = VectorStoreGraph()
-        vector_app = vector_graph.compile()
-        vector_app.invoke({})
-
-        # Step 5: Generate Newsletter
-        print(" Step 5: Generating newsletter...")
-        newsletter_graph = NewsletterGraph()
-        newsletter_app = newsletter_graph.compile()
-        newsletter_app.invoke({})
-
-        # Step 6: Send Email
-        print(" Step 6: Sending newsletter...")
-        newsletter_path = "data/output_newsletter/newsletter.html"
-        
-        if not os.path.exists(newsletter_path):
-            raise FileNotFoundError(f"Newsletter file not found at {newsletter_path}")
-            
-        success = False
-        for recipient in CONFIG["recipients"]:
-            if send_email(
-                recipient=recipient.strip(),
-                subject=CONFIG["subject"],
-                html_file=newsletter_path
-            ):
-                success = True
-                break
-                
-        if not success:
-            raise Exception("Failed to send newsletter to any recipient")
-
-        print(" Pipeline completed successfully!")
-        
-    except Exception as e:
-        print(f" Pipeline failed: {str(e)}")
-        raise
+    app = graph.compile()
+    app.invoke({})
 
 if __name__ == "__main__":
     run_pipeline()
+

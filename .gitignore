@@ -1,3 +1,5 @@
-config/
-data/
 .env
+venv
+#/chroma_data/
+/config/
+vector_etl/tempfile_downloads

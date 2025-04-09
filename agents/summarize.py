@@ -1,117 +1,87 @@
 import os
-import pandas as pd
-import torch
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-from langgraph.graph import StateGraph
-from typing import TypedDict, Annotated
-from typing_extensions import TypedDict
+import csv
+from dotenv import load_dotenv
 
-#  Load T5-small model (Efficient for CPU)
-MODEL_NAME = "t5-small"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+from langchain_chroma import Chroma
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain.prompts import PromptTemplate
 
-def get_latest_parquet_file(directory="data"):
-    """Finds the most recent Parquet file in 'data/' directory."""
-    files = [f for f in os.listdir(directory) if f.endswith(".parquet")]
-    if not files:
-        raise FileNotFoundError(" No Parquet files found in 'data' directory.")
-    
-    files.sort(key=lambda f: os.path.getmtime(os.path.join(directory, f)), reverse=True)
-    latest_file = files[0]
-    print(f" Loading data from: {latest_file}")  
-    return os.path.join(directory, latest_file)
+# Load .env with Azure config
+load_dotenv()
 
-def load_data():
-    """Loads the latest scraped Stack Overflow data."""
-    parquet_file = get_latest_parquet_file()
-    return pd.read_parquet(parquet_file)
+# Minimal: Embedding only for querying
+embedding = AzureOpenAIEmbeddings(
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    openai_api_version=os.getenv("OPENAI_API_VERSION"),
+    deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"), 
+    model="text-embedding-3-large"
+)
 
-def summarize_text(text):
-    """Summarizes a given text using T5-small with detailed solution explanation."""
-    # Create a more detailed prompt that encourages comprehensive solution explanation
-    prompt = f"""Explain the solution in detail:
-    Problem: {text}
-    Please provide:
-    1. Main solution approach
-    2. Key implementation steps
-    3. Important considerations
-    4. Best practices to follow
+# Load vector store with existing embeddings
+vectorstore = Chroma(
+    collection_name="stackoverflow_qa",
+    persist_directory="./chroma_data",
+    embedding_function=embedding
+)
 
-    Detailed explanation:"""
-    
-    inputs = tokenizer(prompt, return_tensors="pt", max_length=512, truncation=True)
-    
-    # Generate longer output with more tokens
-    output = model.generate(
-        **inputs,
-        max_new_tokens=250,  # Increased from 100 to 250
-        num_beams=4,         # Use beam search for better quality
-        temperature=0.7,     # Slightly increase creativity
-        top_p=0.9,          # Nucleus sampling for better coherence
-        do_sample=True      # Enable sampling for more natural text
-    )
-    
-    return tokenizer.decode(output[0], skip_special_tokens=True)
+# Search top 5 relevant docs
+query = "python"
+docs = vectorstore.similarity_search(query, k=5)
+print(f"🔎 Found {len(docs)} matching documents")
 
-# Define state schema
-class SummarizationState(TypedDict):
-    df: pd.DataFrame
-    summarized_df: pd.DataFrame
+# GPT-4o setup for summarization
+llm = AzureChatOpenAI(
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    openai_api_version=os.getenv("OPENAI_API_VERSION"),
+    deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    model_name="gpt-4o"
+)
 
-#  LangGraph-based Summarization Workflow
-class SummarizationGraph(StateGraph):
-    def __init__(self):
-        super().__init__(state_schema=SummarizationState)
+# Prompt for summarizing Q&A sets into an article-style newsletter block
+article_prompt = PromptTemplate.from_template("""
+You are a tech writer creating a developer newsletter.
 
-        # Define the workflow steps
-        self.add_node("load_data", self.load_data)
-        self.add_node("summarize", self.summarize)
-        self.add_node("save", self.save)
+You are given 5 StackOverflow Q&A entries. For each, write a brief article-style block summarizing:
+- The problem or question
+- The accepted solution or approach
+- Any helpful insights or tips
 
-        # Define the workflow edges (execution order)
-        self.add_edge("load_data", "summarize")
-        self.add_edge("summarize", "save")
+Number and format each summary clearly, like:
 
-        # Set the entry point
-        self.set_entry_point("load_data")
+1. **Question Title**
+Summary here...
 
-    def load_data(self, state: SummarizationState) -> SummarizationState:
-        """Loads Stack Overflow Q&A dataset."""
-        df = load_data()
-        return {"df": df, "summarized_df": pd.DataFrame()}
+Q&A Entries:
+{text}
 
-    def summarize(self, state: SummarizationState) -> SummarizationState:
-        """Summarizes Q&A using T5-small with detailed solutions."""
-        df = state["df"]
-        summaries = []
-        
-        for _, row in df.iterrows():
-            # Create a more comprehensive input for summarization
-            input_text = f"{row['title']}\nProblem: {row.get('problem', row['title'])}\nSolution: {row.get('solution', 'N/A')}"
-            summary = summarize_text(input_text)
-            
-            summaries.append({
-                "title": row['title'],
-                "tags": row['tags'],
-                "problem": row.get('problem', row['title']),
-                "solution": row.get('solution', 'N/A'),
-                "summary": summary
-            })
+Newsletter Summaries:
+""")
 
-        summarized_df = pd.DataFrame(summaries)
-        return {"df": df, "summarized_df": summarized_df}
+# Runnable chain
+chain = article_prompt | llm
 
-    def save(self, state: SummarizationState) -> SummarizationState:
-        """Saves summarized data to a Parquet file."""
-        output_file = "data/summarized_posts.parquet"
-        state["summarized_df"].to_parquet(output_file)
-        print(f" Saved summarized data to {output_file}")
-        return state
+# Extract combined_text from docs
+contents = [doc.metadata.get("combined_text", "").strip() for doc in docs if doc.metadata.get("combined_text")]
 
-#  Run the summarization workflow
-if __name__ == "__main__":
-    graph = SummarizationGraph()
-    app = graph.compile()
-    app.invoke({})  # Pass empty dict as initial state
+# Combine into batch input
+joined_text = "\n\n".join([f"Q&A #{i+1}:\n{content}" for i, content in enumerate(contents)])
+
+# Run single API call
+summary = chain.invoke({"text": joined_text}).content
+
+# Save to CSV for now (HTML or Markdown can be added later)
+os.makedirs("data", exist_ok=True)
+
+# Path to save the CSV
+csv_path = os.path.join("data", "summary_output.csv")
+
+# Write the summary
+with open(csv_path, "w", newline="", encoding="utf-8") as file:
+    writer = csv.writer(file)
+    writer.writerow(["Newsletter Summary"])
+    writer.writerow([summary])
+
+print(f" Newsletter-style summary saved to {csv_path}")
 
